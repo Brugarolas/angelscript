@@ -13,6 +13,37 @@ if(APPLE)
     option(BUILD_FRAMEWORK "Build Framework bundle for OSX" OFF)
 endif()
 
+option(AS_USE_NAMESPACE "Place the script engine in namespace AngelScript." OFF)
+if (AS_USE_NAMESPACE)
+    add_definitions(-DAS_USE_NAMESPACE=1)
+endif()
+
+# Set up some add-on compile time options.
+option(AS_USE_STLNAMES "Compile the scriptarray, scriptstdstring, and/or scriptdictionary add-ons with the pre-processor define AS_USE_STLNAMES=1 to register the methods with the same names as used by C++ STL" OFF)
+if (AS_USE_STLNAMES)
+    add_definitions(-DAS_USE_STLNAMES=1)
+endif()
+
+option(AS_USE_ACCESSORS "Compile the scriptarray and/or scriptstdstring add-ons with the pre-processor define AS_USE_ACCESSORS=1 to register length as a virtual property instead of the method length()." OFF)
+if (AS_USE_ACCESSORS)
+    add_definitions(-DAS_USE_ACCESSORS=1)
+endif()
+
+option(AS_NO_IMPL_OPS_WITH_STRING_AND_PRIMITIVE "Compile the scriptarray add-on with the pre-processor define AS_NO_IMPL_OPS_WITH_STRING_AND_PRIMITIVE=1 to disable the implicit operations with primitives that automatically formats the primitive values to strings." OFF)
+if (AS_NO_IMPL_OPS_WITH_STRING_AND_PRIMITIVE)
+    add_definitions(-DAS_NO_IMPL_OPS_WITH_STRING_AND_PRIMITIVE=1)
+endif()
+
+option(AS_NO_WRITE_OPS "Compile the scriptfile add-on with the pre-processor define AS_WRITE_OPS=0 to disable writing of files." OFF)
+if (AS_NO_WRITE_OPS)
+    add_definitions(-DAS_WRITE_OPS=0)
+endif()
+
+option(AS_NO_PROCESS_METADATA "Compile the scriptbuilder add-on with the pre-processor define AS_PROCESS_METADATA=0 to disable processing of metadata." OFF)
+if (AS_NO_PROCESS_METADATA)
+    add_definitions(-DAS_PROCESS_METADATA=0)
+endif()
+
 file(READ ../../include/angelscript.h ANGELSCRIPT_H)
 string(REGEX MATCH "#define ANGELSCRIPT_VERSION_STRING \"([0-9]*).([0-9]*).([0-9]*)" ANGELSCRIPT_VERSION_REGEX ${ANGELSCRIPT_H})
 set(ANGELSCRIPT_VERSION_MAJOR ${CMAKE_MATCH_1})
@@ -104,6 +135,28 @@ set(ANGELSCRIPT_SOURCE
     ../../source/as_variablescope.cpp
 )
 
+set(ADDON_HEADERS) # Initialize empty list
+set(ADDON_PATH) # Initialize empty list
+foreach(iaddon ${AS_ADDONS})
+    file(GLOB_RECURSE isource "${CMAKE_CURRENT_SOURCE_DIR}/../../../add_on/*/*${iaddon}.cpp")
+    foreach(isrc ${isource})
+        list(APPEND ANGELSCRIPT_SOURCE ${isrc})
+    endforeach()
+
+    file(GLOB_RECURSE iheader "${CMAKE_CURRENT_SOURCE_DIR}/../../../add_on/*/*${iaddon}.h")
+    foreach(ihdr ${iheader})
+        list(APPEND ANGELSCRIPT_HEADERS ${ihdr})
+        list(APPEND ADDON_HEADERS ${ihdr})
+    endforeach()
+
+    # Repeate search again, but this time to extract relative path name.
+    file(GLOB_RECURSE iheader RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/../../../add_on" "${CMAKE_CURRENT_SOURCE_DIR}/../../../add_on/*/*${iaddon}.h")
+    foreach(ihdr ${iheader})
+        get_filename_component(ipath ${ihdr} DIRECTORY)
+        list(APPEND ADDON_PATH ${ipath})
+    endforeach()
+endforeach()
+
 if(MSVC AND CMAKE_CL_64)
     enable_language(ASM_MASM)
     if(CMAKE_ASM_MASM_COMPILER_WORKS)
@@ -173,6 +226,8 @@ target_link_libraries(${ANGELSCRIPT_LIBRARY_NAME} Threads::Threads)
 
 set_target_properties(${ANGELSCRIPT_LIBRARY_NAME} PROPERTIES VERSION ${PROJECT_VERSION})
 
+set_target_properties(${ANGELSCRIPT_LIBRARY_NAME} PROPERTIES CXX_STANDARD 11)
+
 if(BUILD_FRAMEWORK)
     set_target_properties(${ANGELSCRIPT_LIBRARY_NAME} PROPERTIES
         FRAMEWORK TRUE
@@ -205,6 +260,14 @@ install(FILES
 	DESTINATION include
 	COMPONENT Devel
 )
+
+foreach(iaddon ipath IN ZIP_LISTS ADDON_HEADERS ADDON_PATH)
+	install(FILES
+		${iaddon}
+		DESTINATION include/${ipath}
+		COMPONENT Devel
+	)
+endforeach()
 
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(

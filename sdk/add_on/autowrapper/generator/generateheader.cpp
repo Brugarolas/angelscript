@@ -16,8 +16,12 @@
 #include <stdio.h>
 #include <string>
 
+#ifndef MAX_ARGS
+#define MAX_ARGS 4
+#endif
+
 // Generate templates for up to this number of function parameters
-const int max_args = 4;
+const int max_args = MAX_ARGS;
 
 using namespace std;
 
@@ -111,7 +115,7 @@ int main()
 		PrintConstructor(", ", typename_list.c_str(), type_list.c_str(), arg_list.c_str());
 
 		char buf[5];
-		sprintf(buf, "%d", i + 1);
+		snprintf(buf, sizeof(buf), "%d", i + 1);
 		typename_list += ", typename A" + string(buf);
 		type_list     += ", A" + string(buf);
 		arg_list      += ",\n				static_cast<Proxy <A" + string(buf) + "> *>(gen->GetAddressOfArg(" + string(buf) + "))->value";
